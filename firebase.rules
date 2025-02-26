@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Funzioni helper
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isWaiter() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'waiter';
+    }
+    
+    function isManager() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'manager';
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Profili utente
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Tavoli
+    match /tables/{tableId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isWaiter() || isManager() || isAdmin());
+    }
+
+    // Menu
+    match /menu_categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (isManager() || isAdmin());
+    }
+
+    match /menu_items/{itemId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (isManager() || isAdmin());
+    }
+
+    // Ordini
+    match /orders/{orderId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isWaiter() || isManager() || isAdmin());
+      allow update: if isAuthenticated() && (isWaiter() || isManager() || isAdmin());
+      allow delete: if isAuthenticated() && (isManager() || isAdmin());
+    }
+
+    match /order_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isWaiter() || isManager() || isAdmin());
+    }
+
+    // Prenotazioni
+    match /reservations/{reservationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isWaiter() || isManager() || isAdmin());
+    }
+
+    // Inventario
+    match /inventory_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isManager() || isAdmin());
+    }
+
+    match /inventory_movements/{movementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isManager() || isAdmin());
+    }
+
+    match /menu_item_ingredients/{ingredientId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isManager() || isAdmin());
+    }
+  }
+}
